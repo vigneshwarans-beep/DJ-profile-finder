@@ -80,8 +80,16 @@ class JobSearchQuery(Base):
     job_description = Column(Text, nullable=False) 
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
-def init_db(db_path="sqlite:///linkedin_bot.db"):
+import os
+
+def init_db(db_path=None):
     """Initializes the database and creates tables if they don't exist."""
+    if db_path is None:
+        # Use an absolute path to prevent OperationalError on Streamlit Cloud
+        base_dir = os.path.abspath(os.path.dirname(__file__))
+        db_file = os.path.join(base_dir, "linkedin_bot.db")
+        db_path = f"sqlite:///{db_file}"
+        
     engine = create_engine(db_path, echo=False)
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
