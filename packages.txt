@@ -10,3 +10,5 @@ libxfixes3
 libcups2
 libdrm2
 libatk1.0-0
+tesseract-ocr
+tesseract-ocr-eng

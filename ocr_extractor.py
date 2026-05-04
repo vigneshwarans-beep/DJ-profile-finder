@@ -3,11 +3,15 @@ from PIL import Image
 import re
 from datetime import datetime
 
+import sys
+import os
+
 # NOTE FOR WINDOWS USERS:
 # You MUST install the Tesseract executable for pytesseract to work.
 # Download it here: https://github.com/UB-Mannheim/tesseract/wiki
-# Since Tesseract was just installed via winget, we explicitly point to the default path:
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+# We explicitly point to the default path on Windows:
+if sys.platform == 'win32':
+    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 def _extract_text_from_img(img):
     """Helper to extract text from an Image object, trying multiple rotations if MRZ is not found."""
