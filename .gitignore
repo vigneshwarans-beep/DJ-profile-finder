@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.db
+*.xlsx
+*.pdf
+*.pptx
+playwright_profile/
+scratch/
+workspace/
+.DS_Store
