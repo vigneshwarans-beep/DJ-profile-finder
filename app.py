@@ -139,6 +139,40 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ----------------- AUTHENTICATION -----------------
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    st.markdown("<h1 style='text-align: center; margin-top: 50px;'>Welcome to DJ Profile Finder</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #8E8EA0; margin-bottom: 50px;'>Sign in to access your recruitment dashboard</p>", unsafe_allow_html=True)
+    
+    col1, col2 = st.columns([1.2, 1])
+    
+    with col1:
+        import os
+        img_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "login_graphic.png")
+        if os.path.exists(img_path):
+            st.image(img_path, use_container_width=True)
+        
+    with col2:
+        st.markdown("<div style='padding: 40px; border-radius: 12px; background-color: #F7F7F8; border: 1px solid #E5E5E5; margin-top: 20px;'>", unsafe_allow_html=True)
+        st.markdown("<h3 style='margin-top: 0;'>Login</h3>", unsafe_allow_html=True)
+        with st.form("login_form"):
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+            submitted = st.form_submit_button("Sign In", type="primary", use_container_width=True)
+            
+            if submitted:
+                if username == "admin" and password == "admin":
+                    st.session_state.authenticated = True
+                    st.rerun()
+                else:
+                    st.error("Invalid credentials. Please try again.")
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+    st.stop()
+
 # ----------------- SIDEBAR -----------------
 with st.sidebar:
     # Black and White Logo + Title Header
