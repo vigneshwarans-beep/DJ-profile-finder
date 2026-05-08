@@ -144,20 +144,83 @@ if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
 if not st.session_state.authenticated:
-    st.markdown("<h1 style='text-align: center; margin-top: 50px;'>Welcome to DJ Profile Finder</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #8E8EA0; margin-bottom: 50px;'>Sign in to access your recruitment dashboard</p>", unsafe_allow_html=True)
+    import streamlit.components.v1 as components
     
-    col1, col2 = st.columns([1.2, 1])
-    
-    with col1:
-        import os
-        img_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "login_graphic.png")
-        if os.path.exists(img_path):
-            st.image(img_path, use_container_width=True)
+    # Render the full screen Vanta background via a fixed iframe
+    components.html("""
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.net.min.js"></script>
+        <style>
+            body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+            #vanta-bg { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; }
+        </style>
+        </head>
+        <body>
+        <div id="vanta-bg"></div>
+        <script>
+        VANTA.NET({
+          el: "#vanta-bg",
+          mouseControls: true,
+          touchControls: true,
+          gyroControls: false,
+          minHeight: 200.00,
+          minWidth: 200.00,
+          scale: 1.00,
+          scaleMobile: 1.00,
+          color: 0x3b82f6,
+          backgroundColor: 0xffffff,
+          points: 15.00,
+          maxDistance: 25.00,
+          spacing: 18.00
+        });
         
-    with col2:
-        st.markdown("<div style='padding: 40px; border-radius: 12px; background-color: #F7F7F8; border: 1px solid #E5E5E5; margin-top: 20px;'>", unsafe_allow_html=True)
-        st.markdown("<h3 style='margin-top: 0;'>Login</h3>", unsafe_allow_html=True)
+        // Hack to make the Streamlit iframe full screen
+        const doc = window.parent.document;
+        const iframes = doc.querySelectorAll('iframe');
+        for (let iframe of iframes) {
+            if (iframe.srcdoc && iframe.srcdoc.includes('vanta-bg')) {
+                iframe.style.position = 'fixed';
+                iframe.style.top = '0';
+                iframe.style.left = '0';
+                iframe.style.width = '100vw';
+                iframe.style.height = '100vh';
+                iframe.style.zIndex = '0';
+                iframe.style.border = 'none';
+            }
+        }
+        
+        // Make Streamlit's main block transparent so we can see the iframe behind it
+        const stApp = doc.querySelector('.stApp');
+        if (stApp) {
+            stApp.style.background = 'transparent';
+        }
+        </script>
+        </body>
+        </html>
+    """, height=0)
+
+    # Now render the login card on top
+    st.markdown("""
+        <style>
+        /* Force the login card to be elevated above the background */
+        [data-testid="stAppViewBlockContainer"] {
+            z-index: 10;
+            position: relative;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("<h1 style='text-align: center; margin-top: 10vh;'>Welcome to DJ Profile Finder</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #555; margin-bottom: 50px;'>Sign in to access your recruitment dashboard</p>", unsafe_allow_html=True)
+    
+    _, center_col, _ = st.columns([1, 1.2, 1])
+    
+    with center_col:
+        st.markdown("<div style='padding: 40px; border-radius: 16px; background-color: rgba(255, 255, 255, 0.85); box-shadow: 0 8px 32px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.5); backdrop-filter: blur(10px);'>", unsafe_allow_html=True)
+        st.markdown("<h3 style='margin-top: 0; text-align: center;'>Login</h3>", unsafe_allow_html=True)
         with st.form("login_form"):
             username = st.text_input("Username")
             password = st.text_input("Password", type="password")
@@ -166,6 +229,8 @@ if not st.session_state.authenticated:
             if submitted:
                 if username == "admin" and password == "admin":
                     st.session_state.authenticated = True
+                    # Reset background back to white when logged in
+                    components.html("<script>window.parent.document.querySelector('.stApp').style.background = '#FFFFFF';</script>", height=0)
                     st.rerun()
                 else:
                     st.error("Invalid credentials. Please try again.")
