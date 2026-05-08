@@ -152,7 +152,7 @@ if not st.session_state.authenticated:
         <html>
         <head>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.rings.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.net.min.js"></script>
         <style>
             body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
             #vanta-bg { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; }
@@ -161,7 +161,7 @@ if not st.session_state.authenticated:
         <body>
         <div id="vanta-bg"></div>
         <script>
-        VANTA.RINGS({
+        VANTA.NET({
           el: "#vanta-bg",
           mouseControls: true,
           touchControls: true,
@@ -171,7 +171,10 @@ if not st.session_state.authenticated:
           scale: 1.00,
           scaleMobile: 1.00,
           color: 0x3b82f6,
-          backgroundColor: 0xffffff
+          backgroundColor: 0x0f172a,
+          points: 15.00,
+          maxDistance: 25.00,
+          spacing: 18.00
         });
         
         // Hack to make the Streamlit iframe full screen
@@ -207,17 +210,21 @@ if not st.session_state.authenticated:
             z-index: 10;
             position: relative;
         }
+        /* Make form labels white to contrast with dark background */
+        [data-testid="stForm"] label, [data-testid="stForm"] p {
+            color: #ffffff !important;
+        }
         </style>
     """, unsafe_allow_html=True)
     
-    st.markdown("<h1 style='text-align: center; margin-top: 10vh;'>Welcome to DJ Profile Finder</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #555; margin-bottom: 50px;'>Sign in to access your recruitment dashboard</p>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; margin-top: 10vh; color: #ffffff;'>Welcome to DJ Profile Finder</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #94a3b8; margin-bottom: 50px;'>Sign in to access your recruitment dashboard</p>", unsafe_allow_html=True)
     
     _, center_col, _ = st.columns([1, 1.2, 1])
     
     with center_col:
-        st.markdown("<div style='padding: 40px; border-radius: 16px; background-color: rgba(255, 255, 255, 0.85); box-shadow: 0 8px 32px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.5); backdrop-filter: blur(10px);'>", unsafe_allow_html=True)
-        st.markdown("<h3 style='margin-top: 0; text-align: center;'>Login</h3>", unsafe_allow_html=True)
+        st.markdown("<div style='padding: 40px; border-radius: 16px; background-color: rgba(30, 41, 59, 0.75); box-shadow: 0 8px 32px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(12px); color: #ffffff;'>", unsafe_allow_html=True)
+        st.markdown("<h3 style='margin-top: 0; text-align: center; color: #ffffff;'>Login</h3>", unsafe_allow_html=True)
         with st.form("login_form"):
             username = st.text_input("Username")
             password = st.text_input("Password", type="password")
