@@ -217,6 +217,16 @@ with st.sidebar:
             st.session_state.messages.append({"role": "assistant", "content": f"Viewing **{resume}**... Looks like a strong candidate! I've saved this to your Resume Database."})
             st.rerun()
 
+    st.markdown("<p style='font-size: 12px; color: #8E8EA0; font-weight: 600; padding-left: 10px; margin-top: 15px; margin-bottom: 5px;'>📧 Email Settings</p>", unsafe_allow_html=True)
+    with st.expander("Configure Outreach Email"):
+        with st.form("email_settings_form"):
+            email_sender_val = st.text_input("Gmail Address", value=st.session_state.get("email_sender", ""))
+            email_pwd_val = st.text_input("App Password", type="password", value=st.session_state.get("email_password", ""))
+            if st.form_submit_button("Save Credentials"):
+                st.session_state.email_sender = email_sender_val
+                st.session_state.email_password = email_pwd_val
+                st.success("Credentials saved!")
+
     st.markdown("<p style='font-size: 12px; color: #8E8EA0; font-weight: 600; padding-left: 10px; margin-top: 15px; margin-bottom: 5px;'>🛂 I-94 Verification</p>", unsafe_allow_html=True)
     with st.expander("Verify Travel History"):
         with st.form("i94_form"):
@@ -545,3 +555,47 @@ if st.session_state.show_right_sidebar and right_col:
                     st.image(res["image"])
                 else:
                     st.error(f"❌ Failed to retrieve I-94: {res['msg']}")
+
+        st.divider()
+        st.markdown("<h3 style='margin-top: 0; padding-top: 5px; font-size: 20px; color: #202123;'>✉️ Candidate Outreach</h3>", unsafe_allow_html=True)
+        st.markdown("<p style='font-size: 14px; color: #8E8EA0; margin-bottom: 20px;'>Draft and send emails directly to sourced candidates.</p>", unsafe_allow_html=True)
+        
+        # Get candidates for email
+        candidates = session.query(Candidate).all()
+        if not candidates:
+            st.info("No candidates saved yet. Run a search first!")
+        else:
+            candidate_options = {c.id: c.name for c in candidates}
+            selected_cand_id = st.selectbox("Select Candidate", options=list(candidate_options.keys()), format_func=lambda x: candidate_options[x])
+            selected_cand = next((c for c in candidates if c.id == selected_cand_id), None)
+            
+            with st.form("email_composer_form"):
+                cand_email = st.text_input("Candidate's Email Address")
+                
+                default_subject = f"Interview Opportunity: Your experience aligns perfectly"
+                
+                default_body = f"Hi {selected_cand.name.split()[0] if selected_cand else ''},\n\nI came across your profile on LinkedIn and was really impressed by your background, particularly your recent experience.\n\nI'm reaching out because we are currently looking to fill a role that seems to align perfectly with your skill set. We are moving quickly with the interview process and I'd love to connect.\n\nWould you be open to a brief 10-minute chat sometime this week to discuss the opportunity in more detail?\n\nLooking forward to hearing from you!\n\nBest regards,\n[Your Name]\n[Your Company]"
+                
+                email_subject = st.text_input("Subject", value=default_subject)
+                email_body = st.text_area("Message", value=default_body, height=200)
+                
+                send_pressed = st.form_submit_button("Send Email", type="primary", use_container_width=True)
+                
+                if send_pressed:
+                    if not st.session_state.get("email_sender") or not st.session_state.get("email_password"):
+                        st.error("Please configure your Email Settings in the left sidebar first.")
+                    elif not cand_email:
+                        st.error("Please provide the candidate's email address.")
+                    else:
+                        from email_sender import send_email
+                        success, msg = send_email(
+                            st.session_state.email_sender,
+                            st.session_state.email_password,
+                            cand_email,
+                            email_subject,
+                            email_body
+                        )
+                        if success:
+                            st.success(msg)
+                        else:
+                            st.error(msg)

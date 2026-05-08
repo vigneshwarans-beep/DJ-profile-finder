@@ -56,102 +56,105 @@ def extract_keywords(jd_text, top_n=5):
     most_common = [word for word, count in Counter(filtered_words).most_common(top_n)]
     return most_common
 
-def find_linkedin_profiles(keywords, location="", db_session=None, max_results=10, start_index=1):
-    """Uses Playwright to search Yahoo and extracts profile info directly from snippets, avoiding LinkedIn logins."""
+def find_linkedin_profiles(keywords, location="", db_session=None, max_results=10, start_page=1):
+    """Uses Playwright to search LinkedIn directly with an authenticated session."""
     import urllib.parse
     import re
+    import os
+    import time
+    import random
     
     query_str = " ".join(keywords)
     if location:
         query_str += f' "{location}"'
-    query = f'site:linkedin.com/in/ {query_str}'
-    print(f"[*] Searching Yahoo for: {query} (Starting at result {start_index})")
+        
+    print(f"[*] Searching LinkedIn directly for: {query_str} (Page {start_page})")
     
     profiles = []
     seen_urls = set()
     
+    # We need the absolute path for playwright_profile
+    profile_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "playwright_profile"))
+    
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
+            # We use headless=False so the user can log in if needed or solve CAPTCHAs
+            browser = p.chromium.launch_persistent_context(
+                user_data_dir=profile_dir,
+                headless=False,
+                viewport={"width": 1280, "height": 800}
+            )
+            page = browser.pages[0] if browser.pages else browser.new_page()
             
-            url = f"https://search.yahoo.com/search?p={urllib.parse.quote(query)}&b={start_index}"
-            page.goto(url)
+            # Go to LinkedIn
+            page.goto("https://www.linkedin.com/")
             
+            # Check if we are logged in by looking for the nav bar or login field
+            time.sleep(random.uniform(2, 4))
+            if page.locator("input#session_key").count() > 0 or page.locator("input#username").count() > 0:
+                print("\n[!] IMPORTANT: You are not logged into LinkedIn.")
+                print("[!] A browser window has opened. Please log in to your account.")
+                print("[!] Waiting for you to log in... (I will automatically continue once logged in)")
+                # Wait until the global nav search bar appears (meaning login successful)
+                page.wait_for_selector("input.search-global-typeahead__input", timeout=600000) # 10 minutes max wait
+                print("[*] Login detected! Proceeding with search...\n")
+                time.sleep(random.uniform(2, 4))
+            
+            # Construct search URL
+            url_encoded_query = urllib.parse.quote(query_str)
+            search_url = f"https://www.linkedin.com/search/results/people/?keywords={url_encoded_query}&page={start_page}"
+            
+            print(f"[*] Navigating to search page: {search_url}")
+            page.goto(search_url)
+            
+            # Wait for results to load
             try:
-                page.wait_for_selector("#web", timeout=10000)
-            except Exception:
-                print("    [!] Timeout waiting for Yahoo results. It might be a slow connection.")
+                page.wait_for_selector("ul.reusable-search__entity-result-list", timeout=15000)
+            except:
+                print("    [!] Could not find search results. You might have hit a search limit or CAPTCHA.")
+                print("    [!] Look at the browser window to resolve any issues.")
+                try:
+                    input("    [!] Press Enter here AFTER resolving the issue in the browser...")
+                except EOFError:
+                    pass
             
+            # Scroll down slowly to load all results on the page
+            for _ in range(4):
+                page.mouse.wheel(0, 500)
+                time.sleep(random.uniform(1, 2))
+                
+            # Extract results
             results = page.evaluate('''() => {
-                const items = Array.from(document.querySelectorAll('#web .algo'));
+                const items = Array.from(document.querySelectorAll('li.reusable-search__result-container'));
                 return items.map(item => {
-                    const a = item.querySelector('a');
-                    const desc = item.querySelector('.compTitle ~ div');
+                    const nameEl = item.querySelector('span[dir="ltr"] span[aria-hidden="true"]');
+                    const linkEl = item.querySelector('a.app-aware-link');
+                    const headlineEl = item.querySelector('.entity-result__primary-subtitle');
+                    const locationEl = item.querySelector('.entity-result__secondary-subtitle');
+                    
                     return {
-                        title: a ? a.innerText : '',
-                        url: a ? a.href : '',
-                        snippet: desc ? desc.innerText : ''
+                        name: nameEl ? nameEl.innerText.trim() : '',
+                        url: linkEl ? linkEl.href.split('?')[0] : '', // Remove tracking parameters
+                        headline: headlineEl ? headlineEl.innerText.trim() : '',
+                        location: locationEl ? locationEl.innerText.trim() : ''
                     };
                 });
             }''')
             
             for res in results:
-                raw_href = res.get('url', '')
-                if not raw_href: continue
+                name = res.get('name', '')
+                clean_url = res.get('url', '')
+                headline = res.get('headline', '')
+                candidate_location = res.get('location', '')
                 
-                href = urllib.parse.unquote(raw_href)
-                
-                # Extract clean LinkedIn URL
-                clean_url = ""
-                if 'linkedin.com/in/' in href:
-                    match = re.search(r'(https://[a-z]{0,3}\.?linkedin\.com/in/[^"\'&?\s]+)', href)
-                    if match:
-                        clean_url = match.group(1)
-                    else:
-                        parts = href.split('linkedin.com/in/')
-                        clean_url = 'https://www.linkedin.com/in/' + parts[1].split('/RK=')[0].split('?')[0]
-                        
-                if not clean_url or '/dir/' in clean_url or 'yahoo' in clean_url:
+                if not name or not clean_url or 'linkedin.com/in/' not in clean_url:
                     continue
                     
-                if clean_url in seen_urls:
+                if clean_url in seen_urls or name == "LinkedIn Member":
                     continue
                     
                 seen_urls.add(clean_url)
                 
-                # Extract Name and Headline from Title
-                title = res.get('title', '')
-                snippet = res.get('snippet', '')
-                
-                name = "Unknown Name"
-                headline = ""
-                
-                if '-' in title:
-                    parts = title.split('-')
-                    name = parts[0].strip()
-                    if len(parts) > 1:
-                        headline = parts[1].split('|')[0].strip()
-                elif '|' in title:
-                    parts = title.split('|')
-                    name = parts[0].strip()
-                else:
-                    name = title.strip()
-                    
-                # Clean up Yahoo breadcrumbs from name (e.g. "LinkedIn \n url \n Actual Name")
-                if '\n' in name:
-                    name = name.split('\n')[-1].strip()
-                    
-                if not headline and snippet:
-                    headline = snippet.split('')[0].strip() if '' in snippet else snippet[:100]
-                    
-                # Extract Location from snippet if possible, else default to search location
-                candidate_location = location
-                if 'Location:' in snippet:
-                    loc_match = re.search(r'Location:\s*([^\s]+(?:\s+[^\s]+)*)', snippet)
-                    if loc_match:
-                        candidate_location = loc_match.group(1).strip()
-                        
                 print(f"    Found: {name}")
                 print(f"    Headline: {headline}")
                 print(f"    Location: {candidate_location}")
@@ -181,14 +184,15 @@ def find_linkedin_profiles(keywords, location="", db_session=None, max_results=1
                     
             browser.close()
     except Exception as e:
-        print(f"[!] Error during Yahoo search: {e}")
+        print(f"[!] Error during LinkedIn search: {e}")
         
-    print(f"[*] Found {len(profiles)} profile URLs.")
+    print(f"[*] Found {len(profiles)} profile URLs on this page.")
     return profiles
 
 def run_job_search(jd_text, location=""):
     """Main pipeline generator that yields batches of candidates."""
     import time
+    import random
     engine, session = init_db()
     
     query_log = JobSearchQuery(job_description=jd_text)
@@ -200,38 +204,47 @@ def run_job_search(jd_text, location=""):
     print(f"Extracted Keywords from JD: {keywords}")
     
     total_profiles = 0
-    # Run 3 batches of 10 to get 30 profiles total, waiting 3 mins between
+    # Run 3 batches to get profiles, incrementing page number
     for batch_num in range(3):
-        start_index = (batch_num * 10) + 1
-        print(f"\n--- Step 2: Finding Candidates via Search Snippets (Batch {batch_num + 1}) ---")
-        results = find_linkedin_profiles(keywords, location, db_session=session, max_results=10, start_index=start_index) 
+        start_page = batch_num + 1
+        print(f"\n--- Step 2: Finding Candidates directly on LinkedIn (Page {start_page}) ---")
+        results = find_linkedin_profiles(keywords, location, db_session=session, max_results=10, start_page=start_page) 
         
         if not results:
-            print("No Candidates found in this batch.")
+            print("No Candidates found on this page.")
             if batch_num == 0:
                 yield []
             break
             
-        print("\n--- Step 3: Calculating Match Percentage ---")
+        print("\n--- Step 3: Calculating Match Percentage & Generating Fit Justification ---")
         for res in results:
             candidate_text = f"{res['headline']} {res['location']} {res['name']}".lower()
             candidate_words = set(re.findall(r'\b[a-zA-Z]{3,}\b', candidate_text))
             jd_words = set([k.lower() for k in keywords])
             
-            match_count = len(jd_words.intersection(candidate_words))
-            base_score = 75 # Guarantee a high base score so they are always included
+            matched_keywords = jd_words.intersection(candidate_words)
+            match_count = len(matched_keywords)
+            base_score = 75 
             match_percentage = min(99, base_score + (match_count * 5))
             res['match_percentage'] = match_percentage
             
+            # Generate fit justification sentence
+            if matched_keywords:
+                matched_str = ", ".join(list(matched_keywords)[:3])
+                res['fit_justification'] = f"This profile aligns with the role due to matching key terms like '{matched_str}' found in their headline/location."
+            else:
+                res['fit_justification'] = "This profile was returned by LinkedIn search as a potential fit for the required skills."
+                
         filtered_results = results
 
         total_profiles += len(results)
         yield filtered_results
         
-        # If there are more batches and we actually found some results, wait 3 minutes
+        # Human-like delay between pages
         if batch_num < 2 and len(results) > 0:
-            print(f"Waiting 3 minutes before next batch to avoid rate limits... (Found {total_profiles} so far)")
-            time.sleep(180)
+            delay = random.uniform(15, 30) # Wait 15-30 seconds between pages to mimic humans
+            print(f"Waiting {delay:.1f} seconds before next page to avoid rate limits... (Found {total_profiles} so far)")
+            time.sleep(delay)
 
 if __name__ == "__main__":
     print("=================================================")
@@ -258,5 +271,6 @@ if __name__ == "__main__":
         for batch in run_job_search(jd_text, location=""):
             for res in batch:
                 print(f" -> {res['name']} ({res.get('match_percentage', 0)}% Match) | {res['url']}")
+                print(f"    Fit: {res.get('fit_justification', '')}")
     else:
         print("No Job Description provided. Exiting.")
