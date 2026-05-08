@@ -152,7 +152,7 @@ if not st.session_state.authenticated:
         <html>
         <head>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.net.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.rings.min.js"></script>
         <style>
             body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
             #vanta-bg { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; }
@@ -161,7 +161,7 @@ if not st.session_state.authenticated:
         <body>
         <div id="vanta-bg"></div>
         <script>
-        VANTA.NET({
+        VANTA.RINGS({
           el: "#vanta-bg",
           mouseControls: true,
           touchControls: true,
@@ -171,10 +171,7 @@ if not st.session_state.authenticated:
           scale: 1.00,
           scaleMobile: 1.00,
           color: 0x3b82f6,
-          backgroundColor: 0xffffff,
-          points: 15.00,
-          maxDistance: 25.00,
-          spacing: 18.00
+          backgroundColor: 0xffffff
         });
         
         // Hack to make the Streamlit iframe full screen
